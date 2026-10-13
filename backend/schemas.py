@@ -133,6 +133,7 @@ class AnalyzeResponse(BaseModel):
     findings: List[Finding]
     ai_summary: str
     recommendations: List[str]
+    changed_files: Optional[List[Dict[str, Any]]] = None
 
     # Frontend-compatible aliases/mirrors
     metadata: PullRequestMetadata

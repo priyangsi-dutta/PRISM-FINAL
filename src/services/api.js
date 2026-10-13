@@ -60,17 +60,28 @@ export function normalizeAnalysisResponse(data, originalUrl) {
   const riskLevel = String(rawLevel).toUpperCase();
 
   // Extract metadata
-  const repoMeta = data.repository || data.repo || data.repo_metadata || data.repoMetadata || {};
+  const repoMeta = data.pull_request || data.metadata || data.repository || data.repo || data.repo_metadata || data.repoMetadata || {};
   const repository = typeof repoMeta === 'string' 
     ? repoMeta 
-    : (repoMeta.full_name || repoMeta.name || fallbackRepo);
+    : (repoMeta.repo || repoMeta.full_name || repoMeta.name || fallbackRepo);
 
-  const prNumber = data.pr_number || data.prNumber || data.number || repoMeta.pr_number || fallbackPrNum;
-  const title = data.title || data.pr_title || data.prTitle || repoMeta.title || `PR #${prNumber || 'Unknown'}`;
-  const author = data.author || data.user || data.creator || repoMeta.author || 'Contributor';
-  const baseBranch = data.base_branch || data.baseBranch || repoMeta.base || 'main';
-  const headBranch = data.head_branch || data.headBranch || repoMeta.head || 'feature';
-  const createdAt = data.created_at || data.createdAt || repoMeta.created_at || new Date().toISOString();
+  const prNumber = repoMeta.number || data.pr_number || data.prNumber || data.number || repoMeta.pr_number || fallbackPrNum;
+  const title = repoMeta.title || data.title || data.pr_title || data.prTitle || `PR #${prNumber || 'Unknown'}`;
+
+  let author = 'Contributor';
+  if (repoMeta.author) {
+    if (typeof repoMeta.author === 'string') author = repoMeta.author;
+    else if (repoMeta.author.login) author = repoMeta.author.login;
+    else if (repoMeta.author.name) author = repoMeta.author.name;
+  } else if (data.author) {
+    if (typeof data.author === 'string') author = data.author;
+    else if (data.author.login) author = data.author.login;
+    else if (data.author.name) author = data.author.name;
+  }
+
+  const baseBranch = repoMeta.base_branch || data.base_branch || data.baseBranch || repoMeta.base || 'main';
+  const headBranch = repoMeta.head_branch || data.head_branch || data.headBranch || repoMeta.head || 'feature';
+  const createdAt = repoMeta.created_at || data.created_at || data.createdAt || new Date().toISOString();
 
   // Extract AI summary
   const aiSummary = data.ai_summary || data.summary || data.overview || data.description || '';
@@ -89,11 +100,11 @@ export function normalizeAnalysisResponse(data, originalUrl) {
     title: f.title || f.rule || f.name || f.issue || 'Security Finding',
     severity: (f.severity || f.level || 'MEDIUM').toUpperCase(),
     category: f.category || f.type || 'Security & Compliance',
-    filePath: f.file_path || f.filePath || f.file || f.filename || 'unknown',
+    filePath: f.file_path || f.filePath || f.file || f.filename || (Array.isArray(f.affected_files) && f.affected_files[0]) || 'unknown',
     lineNumber: f.line_number ?? f.lineNumber ?? f.line ?? null,
     description: f.description || f.details || f.message || '',
-    evidence: f.evidence || f.code || f.snippet || f.diff || '',
-    recommendation: f.recommendation || f.suggestion || f.remediation || f.fix || '',
+    evidence: f.evidence || f.evidence_diff || f.code || f.snippet || f.diff || '',
+    recommendation: f.recommendation || f.remediation || f.suggestion || f.fix || '',
     cwe: f.cwe || f.cve || null,
   }));
 
@@ -144,10 +155,11 @@ export function normalizeAnalysisResponse(data, originalUrl) {
   });
 
   // Extract metrics & stats
+  const diffStats = repoMeta.diff_stats || {};
   const stats = data.stats || {
-    totalFiles: changedFiles.length || (data.files_count ?? 0),
-    additions: data.additions ?? changedFiles.reduce((acc, f) => acc + (f.additions || 0), 0),
-    deletions: data.deletions ?? changedFiles.reduce((acc, f) => acc + (f.deletions || 0), 0),
+    totalFiles: changedFiles.length || diffStats.files_changed || (data.files_count ?? 0),
+    additions: data.additions ?? diffStats.additions ?? changedFiles.reduce((acc, f) => acc + (f.additions || 0), 0),
+    deletions: data.deletions ?? diffStats.deletions ?? changedFiles.reduce((acc, f) => acc + (f.deletions || 0), 0),
     criticalFindings: findings.filter(f => f.severity === 'CRITICAL').length,
     highFindings: findings.filter(f => f.severity === 'HIGH').length,
     mediumFindings: findings.filter(f => f.severity === 'MEDIUM').length,

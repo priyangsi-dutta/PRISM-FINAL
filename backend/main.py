@@ -103,6 +103,7 @@ async def analyze_pull_request_endpoint(request: AnalyzeRequest):
         findings=findings,
         ai_summary=ai_explanation.executive_summary,
         recommendations=recommendations,
+        changed_files=raw_files,
         # Mirrors for existing frontend components
         metadata=pr_meta,
         risk_assessment=risk_assessment,
@@ -118,8 +119,14 @@ def resolve_frontend_directory() -> Path:
     """
     Finds the frontend directory whether app is run from project root or backend folder.
     """
-    # 1. Direct parent/frontend
     base_dir = Path(__file__).resolve().parent.parent
+
+    # 0. Production Vite build (dist)
+    candidate_dist = base_dir / "dist"
+    if candidate_dist.exists() and (candidate_dist / "index.html").exists():
+        return candidate_dist
+
+    # 1. Direct parent/frontend
     candidate_1 = base_dir / "frontend"
     if candidate_1.exists() and (candidate_1 / "index.html").exists():
         return candidate_1

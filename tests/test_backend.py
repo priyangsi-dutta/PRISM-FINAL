@@ -233,6 +233,8 @@ def test_api_analyze_with_mock_github():
         assert "findings" in data
         assert "ai_summary" in data
         assert "recommendations" in data
+        assert "changed_files" in data
+        assert len(data["changed_files"]) == 3
 
         # Verify frontend compatibility mirrors
         assert "metadata" in data
