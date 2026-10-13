@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PRism — AI GitHub PR Risk Triage Dashboard</title>
+  <meta name="description" content="AI-assisted GitHub pull request risk triage, security analysis, and blast radius assessment.">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="theme-dark">
+  <div class="app-layout">
+
+    <!-- Collapsible Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Main Navigation">
+      <div class="sidebar-brand">
+        <div class="brand-logo" aria-hidden="true">
+          <svg class="prism-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="16,2 30,26 2,26" stroke="url(#prismGrad)" stroke-width="2.5" fill="rgba(0, 229, 255, 0.08)"/>
+            <line x1="16" y1="2" x2="16" y2="26" stroke="#00e5ff" stroke-width="1.5" stroke-dasharray="2 2" opacity="0.6"/>
+            <line x1="8" y1="18" x2="24" y2="18" stroke="#3b82f6" stroke-width="1.5" opacity="0.8"/>
+            <circle cx="16" cy="14" r="3" fill="#00e5ff" filter="drop-shadow(0 0 6px #00e5ff)"/>
+            <defs>
+              <linearGradient id="prismGrad" x1="2" y1="2" x2="30" y2="26" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#00e5ff"/>
+                <stop offset="0.5" stop-color="#3b82f6"/>
+                <stop offset="1" stop-color="#8b5cf6"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">PR<span class="text-accent">ism</span></span>
+          <span class="brand-tagline">AI Risk Triage Engine</span>
+        </div>
+      </div>
+
+      <!-- Demo Mode Switcher Card -->
+      <div class="sidebar-section demo-mode-card">
+        <div class="demo-mode-header">
+          <div class="demo-indicator-group">
+            <span class="status-pulse" id="demoPulse" aria-hidden="true"></span>
+            <label for="demoToggle" class="demo-mode-title">Demo Mode</label>
+          </div>
+          <label class="switch" title="Toggle between local Mock Data and live /api/analyze">
+            <input type="checkbox" id="demoToggle" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <p class="demo-mode-desc" id="demoDescText">
+          Testing mode active with local mock data. Turn off to connect to live <code class="code-inline">/api/analyze</code>.
+        </p>
+      </div>
+
+      <!-- Sample Demo Presets (Visible in Demo Mode) -->
+      <div class="sidebar-section demo-presets-section" id="demoPresetsSection">
+        <h3 class="sidebar-heading">Sample Scenarios</h3>
+        <ul class="preset-list" role="list">
+          <li>
+            <button type="button" class="preset-btn active" data-preset="critical" id="presetCriticalBtn">
+              <span class="severity-dot dot-critical" aria-hidden="true"></span>
+              <div class="preset-info">
+                <span class="preset-title">Auth Bypass PR #482</span>
+                <span class="preset-subtitle">Critical Security Vulnerability</span>
+              </div>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="preset-btn" data-preset="high" id="presetHighBtn">
+              <span class="severity-dot dot-high" aria-hidden="true"></span>
+              <div class="preset-info">
+                <span class="preset-title">DB Migration PR #129</span>
+                <span class="preset-subtitle">Breaking Schema & Locking</span>
+              </div>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="preset-btn" data-preset="low" id="presetLowBtn">
+              <span class="severity-dot dot-low" aria-hidden="true"></span>
+              <div class="preset-info">
+                <span class="preset-title">Docs & Tests PR #77</span>
+                <span class="preset-subtitle">Low Risk Documentation</span>
+              </div>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Navigation & Risk Guidelines -->
+      <nav class="sidebar-nav">
+        <h3 class="sidebar-heading">Triage Standards</h3>
+        <ul class="nav-list">
+          <li class="nav-item">
+            <a href="#risk-score-anchor" class="nav-link">
+              <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+              <span>Scoring Rubric</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#findings-anchor" class="nav-link">
+              <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+              <span>Vulnerability Feeds</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#ai-summary-anchor" class="nav-link">
+              <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
+              <span>Reviewer Playbook</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Sidebar Footer / System Status -->
+      <div class="sidebar-footer">
+        <div class="backend-pill">
+          <span class="backend-indicator" id="backendStatusDot"></span>
+          <span class="backend-status-text" id="backendStatusLabel">Demo Mode Active</span>
+        </div>
+        <div class="version-label">PRism Engine v1.2.0 • Zero Build</div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content" id="mainContent">
+
+      <!-- Header Bar -->
+      <header class="top-header">
+        <div class="header-left">
+          <button type="button" class="icon-btn mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation sidebar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div>
+            <h1 class="page-title">PR Risk Triage Dashboard</h1>
+            <p class="page-subtitle">Real-time risk scoring, blast radius estimation & security analysis for Pull Requests</p>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button type="button" class="btn btn-outline" id="clearBtn" title="Clear current analysis">
+            <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+            <span>Reset</span>
+          </button>
+          <button type="button" class="btn btn-secondary" id="copyReportBtn" title="Copy full analysis report as Markdown">
+            <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            <span id="copyReportBtnText">Copy Report</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Search & Input Card -->
+      <section class="card triage-input-card" aria-label="PR Analysis Input">
+        <form id="triageForm" class="triage-form" novalidate>
+          <div class="input-group-wrapper">
+            <div class="input-icon-wrapper" aria-hidden="true">
+              <svg class="github-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+              </svg>
+            </div>
+            <input 
+              type="url" 
+              id="prUrlInput" 
+              class="pr-url-input" 
+              placeholder="Paste GitHub PR URL (e.g., https://github.com/organization/repo/pull/482)" 
+              value="https://github.com/prism-sec/core-auth-service/pull/482" 
+              required 
+              autocomplete="off" 
+              spellcheck="false"
+              aria-label="GitHub Pull Request URL"
+            >
+            <button type="submit" class="btn btn-primary" id="analyzeBtn">
+              <span class="btn-spinner" id="analyzeSpinner" aria-hidden="true"></span>
+              <svg class="btn-icon" id="analyzeIcon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd"/>
+              </svg>
+              <span id="analyzeBtnText">Analyze PR</span>
+            </button>
+          </div>
+          <div class="input-helper">
+            <span class="helper-text">Accepts valid GitHub Pull Request links. In Demo Mode, click any preset or type any URL.</span>
+            <div class="quick-examples">
+              <span class="examples-label">Try:</span>
+              <button type="button" class="chip-btn" data-url="https://github.com/prism-sec/core-auth-service/pull/482">#482 (Critical)</button>
+              <button type="button" class="chip-btn" data-url="https://github.com/acme-corp/payment-service/pull/129">#129 (High)</button>
+              <button type="button" class="chip-btn" data-url="https://github.com/oss-project/documentation/pull/77">#77 (Low)</button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Active Mode Pill Banner -->
+        <div class="mode-banner" id="modeBanner">
+          <span class="banner-badge badge-demo">DEMO MODE ACTIVE</span>
+          <span class="banner-text">Simulating neural PR analysis with labeled mock data. Backend requests to <code class="code-inline">/api/analyze</code> will resume when demo mode is toggled off.</span>
+        </div>
+      </section>
+
+      <!-- Alert / Error State Banner -->
+      <div class="alert-box alert-error" id="errorBox" role="alert" style="display: none;">
+        <div class="alert-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="alert-content">
+          <h4 class="alert-title" id="errorTitle">Analysis Request Failed</h4>
+          <p class="alert-message" id="errorMessage">Unable to fetch pull request data.</p>
+          <div class="alert-actions" id="errorActions">
+            <button type="button" class="btn btn-sm btn-outline" id="errorSwitchDemoBtn">Switch to Demo Mode</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="errorRetryBtn">Retry Request</button>
+          </div>
+        </div>
+        <button type="button" class="alert-close" id="errorCloseBtn" aria-label="Dismiss error">&times;</button>
+      </div>
+
+      <!-- Loading State Panel -->
+      <section class="card loading-card" id="loadingCard" style="display: none;" aria-live="polite" aria-busy="true">
+        <div class="loading-scanner">
+          <div class="scanner-ring ring-1"></div>
+          <div class="scanner-ring ring-2"></div>
+          <div class="scanner-core">
+            <svg class="scanner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+          </div>
+        </div>
+        <div class="loading-details">
+          <h3 class="loading-title" id="loadingStageTitle">Triaging Pull Request...</h3>
+          <p class="loading-subtitle" id="loadingStageDesc">Initiating neural AST inspection and vulnerability scanning.</p>
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="loadingProgressBar"></div>
+          </div>
+          <div class="loading-steps">
+            <div class="step-item active" id="step1">
+              <span class="step-dot"></span>
+              <span class="step-label">Fetch Git Diff</span>
+            </div>
+            <div class="step-item" id="step2">
+              <span class="step-dot"></span>
+              <span class="step-label">Parse AST & Files</span>
+            </div>
+            <div class="step-item" id="step3">
+              <span class="step-dot"></span>
+              <span class="step-label">Risk Heuristics</span>
+            </div>
+            <div class="step-item" id="step4">
+              <span class="step-dot"></span>
+              <span class="step-label">Synthesize Report</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Empty / Initial Welcome State -->
+      <section class="card welcome-card" id="welcomeCard" style="display: none;">
+        <div class="welcome-icon" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="24,4 44,40 4,40" stroke="url(#welcomeGrad)" stroke-width="3" fill="none"/>
+            <circle cx="24" cy="28" r="5" stroke="#00e5ff" stroke-width="2"/>
+            <path d="M24 12v6M18 36h12" stroke="#38bdf8" stroke-width="2"/>
+            <defs>
+              <linearGradient id="welcomeGrad" x1="4" y1="4" x2="44" y2="40" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#00e5ff"/>
+                <stop offset="1" stop-color="#3b82f6"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <h2>Ready for Pull Request Triage</h2>
+        <p>PRism inspects diffs, evaluates blast radius, identifies security CVE patterns, and assigns an objective risk score to safeguard your production pipeline.</p>
+        <div class="feature-bullets">
+          <div class="bullet-item">
+            <span class="bullet-badge">01</span>
+            <div><strong>Security & CVE Checks</strong><br>Detects exposed secrets, SQL injections, auth flaws, and unsafe deserialization.</div>
+          </div>
+          <div class="bullet-item">
+            <span class="bullet-badge">02</span>
+            <div><strong>Blast Radius Prediction</strong><br>Maps modified modules against dependency trees to quantify regression potential.</div>
+          </div>
+          <div class="bullet-item">
+            <span class="bullet-badge">03</span>
+            <div><strong>Actionable Explanations</strong><br>Provides senior engineering insights and concrete checklists for PR reviewers.</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" id="welcomeDemoTrigger">Load Sample PR Analysis</button>
+      </section>
+
+      <!-- Dashboard Results View (Populated after analysis) -->
+      <div class="results-dashboard" id="resultsDashboard">
+
+        <!-- Top Row Metrics Grid -->
+        <div class="metrics-grid">
+
+          <!-- Card 1: Risk Score Meter -->
+          <article class="card metric-card risk-score-card" id="risk-score-anchor">
+            <div class="card-header">
+              <span class="card-label">RISK ASSESSMENT</span>
+              <span class="card-chip" id="riskVerdictBadge">BLOCK MERGE</span>
+            </div>
+            <div class="score-display-body">
+              <div class="gauge-container">
+                <svg class="gauge-svg" viewBox="0 0 120 120">
+                  <circle class="gauge-bg" cx="60" cy="60" r="52"></circle>
+                  <circle class="gauge-fill" id="gaugeCircle" cx="60" cy="60" r="52" stroke-dasharray="326.72" stroke-dashoffset="326.72"></circle>
+                </svg>
+                <div class="gauge-center-text">
+                  <span class="gauge-score" id="scoreValue">--</span>
+                  <span class="gauge-max">/100</span>
+                </div>
+              </div>
+              <div class="score-meta">
+                <div class="severity-pill" id="severityBadge">CRITICAL RISK</div>
+                <p class="score-summary" id="scoreDescription">Immediate high-priority vulnerabilities detected. Requires security sign-off.</p>
+                <div class="confidence-tag">
+                  <span class="confidence-dot"></span>
+                  <span>AI Confidence: <strong id="aiConfidenceText">98%</strong></span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 2: Pull Request Metadata -->
+          <article class="card metric-card pr-meta-card">
+            <div class="card-header">
+              <span class="card-label">PULL REQUEST METADATA</span>
+              <a href="#" target="_blank" rel="noopener noreferrer" class="link-external" id="prExternalLink">
+                View on GitHub
+                <svg viewBox="0 0 16 16" fill="currentColor" class="external-icon"><path d="M4.75 3.5a.75.75 0 000 1.5h4.94L3.47 11.22a.75.75 0 101.06 1.06L10.75 6.06v4.94a.75.75 0 001.5 0V3.5a.75.75 0 00-.75-.75H4.75z"/></svg>
+              </a>
+            </div>
+            <div class="pr-meta-body">
+              <h3 class="pr-title" id="prTitle">--</h3>
+              <div class="pr-badges-row">
+                <span class="meta-tag repo-tag" id="prRepoName">owner/repo</span>
+                <span class="meta-tag pr-number-tag" id="prNumber">#000</span>
+                <span class="meta-status-tag" id="prStateTag">OPEN</span>
+              </div>
+              
+              <div class="pr-branch-flow">
+                <span class="branch-pill source" id="prHeadBranch">feature-branch</span>
+                <span class="branch-arrow">&rarr;</span>
+                <span class="branch-pill target" id="prBaseBranch">main</span>
+              </div>
+
+              <div class="author-and-diff">
+                <div class="author-info">
+                  <div class="avatar-initials" id="authorAvatar">JD</div>
+                  <div class="author-names">
+                    <span class="author-name" id="authorName">John Doe</span>
+                    <span class="author-handle" id="authorLogin">@johndoe</span>
+                  </div>
+                </div>
+                <div class="diff-stats">
+                  <span class="stat-add" id="diffAdditions">+0</span>
+                  <span class="stat-del" id="diffDeletions">-0</span>
+                  <span class="stat-files" id="diffFilesChanged">0 files</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 3: Risk Vector Breakdown -->
+          <article class="card metric-card vectors-card">
+            <div class="card-header">
+              <span class="card-label">RISK BREAKDOWN VECTORS</span>
+              <span class="info-tooltip-badge" title="Categorical risk impact breakdown">4 Dimensions</span>
+            </div>
+            <div class="vectors-body">
+              <div class="vector-row">
+                <div class="vector-header">
+                  <span class="vector-name">Security & Vulnerabilities</span>
+                  <span class="vector-val" id="vecSecurityVal">0%</span>
+                </div>
+                <div class="vector-bar-bg">
+                  <div class="vector-bar-fill fill-critical" id="vecSecurityBar" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div class="vector-row">
+                <div class="vector-header">
+                  <span class="vector-name">Blast Radius & Regressions</span>
+                  <span class="vector-val" id="vecBlastVal">0%</span>
+                </div>
+                <div class="vector-bar-bg">
+                  <div class="vector-bar-fill fill-high" id="vecBlastBar" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div class="vector-row">
+                <div class="vector-header">
+                  <span class="vector-name">Breaking Schema / API Drift</span>
+                  <span class="vector-val" id="vecDriftVal">0%</span>
+                </div>
+                <div class="vector-bar-bg">
+                  <div class="vector-bar-fill fill-medium" id="vecDriftBar" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div class="vector-row">
+                <div class="vector-header">
+                  <span class="vector-name">Test Deficit & Observability</span>
+                  <span class="vector-val" id="vecTestVal">0%</span>
+                </div>
+                <div class="vector-bar-bg">
+                  <div class="vector-bar-fill fill-low" id="vecTestBar" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+        </div>
+
+        <!-- AI Explanation & Reviewer Guidance Panel -->
+        <section class="card ai-explanation-card" id="ai-summary-anchor" aria-label="AI Executive Triage Summary">
+          <div class="card-header">
+            <div class="ai-badge-group">
+              <div class="sparkle-icon" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+              </div>
+              <h2 class="card-section-title">AI Triage Rationale & Executive Summary</h2>
+            </div>
+            <div class="badge-status-pill" id="aiVerdictStatusPill">CRITICAL SCRUTINY REQUIRED</div>
+          </div>
+
+          <div class="ai-explanation-content">
+            <div class="ai-summary-text-block">
+              <p class="ai-lead-paragraph" id="aiExecutiveSummary">
+                Loading AI evaluation summary...
+              </p>
+            </div>
+
+            <div class="ai-grid-two-col">
+              <!-- Key Risk Drivers -->
+              <div class="ai-sub-card">
+                <h4 class="sub-card-title">
+                  <svg class="sub-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                  Primary Risk Drivers
+                </h4>
+                <ul class="risk-factors-list" id="aiRiskFactorsList">
+                  <!-- Populated by JavaScript -->
+                </ul>
+              </div>
+
+              <!-- Recommended Reviewer Action Checklist -->
+              <div class="ai-sub-card">
+                <h4 class="sub-card-title">
+                  <svg class="sub-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                  Reviewer Pre-Merge Checklist
+                </h4>
+                <ul class="checklist-items" id="aiChecklist">
+                  <!-- Populated by JavaScript -->
+                </ul>
+              </div>
+            </div>
+
+            <!-- Blast Radius & Impacted Systems -->
+            <div class="blast-radius-box">
+              <div class="blast-header">
+                <span class="blast-title">Estimated Blast Radius:</span>
+                <span class="blast-highlight" id="blastRadiusScope">3 Downstream Services • High Ingress Sensitivity</span>
+              </div>
+              <div class="impacted-tags" id="impactedModulesList">
+                <!-- Badges populated by JS -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Findings & Vulnerabilities Section -->
+        <section class="card findings-card" id="findings-anchor" aria-label="Detected Findings and Vulnerabilities">
+          <div class="findings-header-row">
+            <div>
+              <h2 class="card-section-title">Detected Findings & Evidence</h2>
+              <p class="section-desc">Specific code-level hazards, logic oversights, and security vulnerabilities identified in the PR diff.</p>
+            </div>
+            
+            <!-- Filter Pills -->
+            <div class="filter-group" role="tablist" aria-label="Filter findings by severity">
+              <button type="button" class="filter-pill active" data-filter="all" id="filterAll">
+                All <span class="filter-count" id="countAll">0</span>
+              </button>
+              <button type="button" class="filter-pill pill-critical" data-filter="critical" id="filterCritical">
+                Critical <span class="filter-count" id="countCritical">0</span>
+              </button>
+              <button type="button" class="filter-pill pill-high" data-filter="high" id="filterHigh">
+                High <span class="filter-count" id="countHigh">0</span>
+              </button>
+              <button type="button" class="filter-pill pill-medium" data-filter="medium" id="filterMedium">
+                Medium <span class="filter-count" id="countMedium">0</span>
+              </button>
+              <button type="button" class="filter-pill pill-low" data-filter="low" id="filterLow">
+                Low <span class="filter-count" id="countLow">0</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Container for finding cards -->
+          <div class="findings-list" id="findingsList" role="region" aria-live="polite">
+            <!-- Rendered dynamically by app.js -->
+          </div>
+        </section>
+
+        <!-- Bottom Action Bar -->
+        <div class="bottom-actions-bar">
+          <button type="button" class="btn btn-secondary" id="bottomCopyReportBtn">
+            <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            <span>Copy Full Triage Report</span>
+          </button>
+          <button type="button" class="btn btn-outline" id="downloadReportBtn">
+            <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            <span>Download Report (.md)</span>
+          </button>
+          <a href="#triageForm" class="btn btn-outline back-to-top">
+            &uarr; Back to Top
+          </a>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Toast Notification Notification -->
+  <div class="toast" id="toastNotification" role="status" aria-live="polite" aria-atomic="true">
+    <div class="toast-icon">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+    </div>
+    <span class="toast-message" id="toastMessage">Report copied to clipboard!</span>
+  </div>
+
+  <!-- JavaScript Entry Point -->
+  <script src="app.js"></script>
+</body>
+</html>
