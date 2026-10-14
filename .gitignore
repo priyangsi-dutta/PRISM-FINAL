@@ -1,4 +1,4 @@
-# Environment & Secrets
+n# Environment & Secrets
 .env
 .env.*
 !.env.example
